@@ -1,8 +1,8 @@
 /*				TCPRCV.C
 */
-/* This is through
-the loothe receiver program. It opens a socket, sets the receive
-window as requested, and then begins an infinite loop. Each time p it accepts a connection and prints out messages from it. When
+/* This is the receiver program. It opens a socket, sets the receive
+window as requested, and then begins an infinite loop. Each time through
+the loop it accepts a connection and prints out messages from it. When
 the connection breaks or a termination message comes through it, the
 program accepts a new connection.  Compile the program on a unix system
 by using gcc -o tcprcv tcprcv.c
@@ -12,6 +12,8 @@ The format of the command line is:  tcprcv
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/sendfile.h>
+#include <fcntl.h>
 #include <netinet/in.h>
 #include <netdb.h>
 #include <stdio.h>
@@ -20,9 +22,10 @@ The format of the command line is:  tcprcv
 #include <stdlib.h>
 #include <strings.h>
 
-#define TRUE 1
-#define SERVER_PORT 50100
 
+#define TRUE 1
+#define SERVER_PORT 50102
+#define LENGTH 1000			//1K 
 
 
 main()
@@ -35,6 +38,7 @@ main()
 	int rcvwin, optlen;
 	int rval;
 	int seqno;
+	ssize_t len;
 
 	rcvwin = buflen;
 
@@ -82,7 +86,37 @@ main()
 					printf("Ending connection\n");
 				else {
 					sscanf(buf, "%d", &seqno);
-					printf("Received packet: seqno = %d length = %d\n, buf = %s\n ", seqno, rval, buf);
+					printf("Received packeta: seqno = %d length = %d\n, buf = %s\n ", seqno, rval, buf);
+
+					//Send File to windows Client
+					char* fileName = "/home/ad.csueastbay.edu/fw4793/projects/linuxSocket/data50K.txt";
+					char sdbuf[LENGTH];
+					printf("Server Sending file to the Client...\n");
+					FILE *fs = fopen(fileName, "r");
+					if (fs == NULL)
+					{
+						printf("ERROR: File %s not found.\n", fileName);
+						exit(1);
+					}
+
+					bzero(sdbuf, LENGTH);
+					int fs_block_sz;
+					
+					while ((fs_block_sz = fread(sdbuf, sizeof(char), LENGTH, fs))>0)
+					{
+						if (send(sda, sdbuf, fs_block_sz, 0) < 0)
+						{
+							printf("ERROR: Failed to send file %s.\n", fileName);
+							break;
+						}
+						bzero(sdbuf, LENGTH);
+						usleep(250);
+					}
+					//printf("File %s was Sent!\n", fileName);
+					printf("File was Sent!\n");
+					//end of Send File to windows Client
+					
+
 				}
 			} while (rval != 0);
 			close(sda);

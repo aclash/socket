@@ -90,7 +90,7 @@
 //					printf("Received packeta: seqno = %d length = %d\n, buf = %s\n ", seqno, rval, buf);
 //
 //					//Send File to windows Client
-//					char* fileName = "/home/ad.csueastbay.edu/fw4793/projects/linuxSocket/data50K.txt";
+//					char* fileName = "/home/ad.csueastbay.edu/fw4793/projects/linuxSocket/data10K.txt";
 //					char sdbuf[LENGTH];
 //					printf("Server Sending file to the Client...\n");
 //					FILE *fs = fopen(fileName, "r");
@@ -108,7 +108,7 @@
 //					while ((fs_block_sz = fread(sdbuf, sizeof(char), LENGTH, fs))>0)
 //					{
 //						//add sequence number at the front.
-//						sprintf(seqArray, "%d", seqNum);
+//						sprintf(seqArray, "SeqNum:(%d)", seqNum);
 //						strcpy(totalBuf, seqArray);
 //						strcpy(totalBuf + SEQ_LEN, sdbuf);
 //						if (send(sda, totalBuf, fs_block_sz + SEQ_LEN, 0) < 0)

@@ -21,5 +21,8 @@
     <ClCompile Include="windows_client.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="request_page.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

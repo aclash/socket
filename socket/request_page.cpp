@@ -1,9 +1,12 @@
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 #define _CRT_SECURE_NO_WARNINGS
+#define _SCL_SECURE_NO_WARNINGS
 #include <windows.h>
 #include <string>
 #include <stdio.h>
-using std::string;
+#include <regex>
+#include <vector>
+using namespace std;
 #pragma comment(lib,"ws2_32.lib")
 
 HINSTANCE hInst;
@@ -12,34 +15,151 @@ void mParseUrl(char *mUrl, string &serverName, string &filepath, string &filenam
 SOCKET connectToServer(char *szServerName, WORD portNum);
 int getHeaderLength(char *content);
 char *readUrl2(char *szUrl, long &bytesReturnedOut, char **headerOut);
+char* formatHTML_start(char* str, long& len);
+char* formatHTML_camp(char* str, long& len);
+char* formatHTML_bbq(char* str, long& len);
+char* formatHTML_beach(char* str, long& len);
+
+
+const char *start = "http://csweb01.csueastbay.edu/~td4679/Pgm3/start";
+const char *camping = "http://csweb01.csueastbay.edu/~td4679/Pgm3/camp.html";
+const char *beach = "http://csweb01.csueastbay.edu/~td4679/Pgm3/beach.html";
+const char *bbq = "http://csweb01.csueastbay.edu/~td4679/Pgm3/bbq.html";
+vector<char*> UrlSrc{ (char*)start, (char*)camping, (char*)beach, (char*)bbq };
+
+typedef char*(*T_pfun)(char*, long&); 
+vector<T_pfun> pFunVec{ formatHTML_start, formatHTML_camp, formatHTML_beach, formatHTML_bbq };
+enum page_state {
+	START = 0,
+	CAMPING = 1,
+	BEACH = 2,
+	BBQ = 3
+};
+
+page_state state = page_state::START;
+
+void SetState(int index)
+{
+	printf("Your choice : %d\n", index);
+	switch (state)
+	{
+		case page_state::START: 
+		{ 
+			UrlSrc[1] = (char*)camping;
+			UrlSrc[2] = (char*)beach;
+			UrlSrc[3] = (char*)bbq;
+			if (index == 1)
+				state = page_state::CAMPING;
+			else if (index == 2)
+				state = page_state::BEACH;
+			else if (index == 3)
+				state = page_state::BBQ;
+			break; 
+		}
+		case page_state::CAMPING: 
+		{
+			UrlSrc[1] = (char*)bbq; 
+			UrlSrc[2] = (char*)beach; 
+			UrlSrc[3] = (char*)start; 
+			if (index == 1)
+				state = page_state::BBQ;
+			else if (index == 2)
+				state = page_state::BEACH;
+			else if (index == 3)
+				state = page_state::START;
+			break; 
+		}
+		case page_state::BEACH: 
+		{
+			UrlSrc[1] = (char*)bbq; 
+			UrlSrc[2] = (char*)camping; 
+			UrlSrc[3] = (char*)start; 
+			if (index == 1)
+				state = page_state::BBQ;
+			else if (index == 2)
+				state = page_state::CAMPING;
+			else if (index == 3)
+				state = page_state::START;
+			break; 
+		}
+		case page_state::BBQ: 
+		{
+			UrlSrc[1] = (char*)beach; 
+			UrlSrc[2] = (char*)camping; 
+			UrlSrc[3] = (char*)start;
+			if (index == 1)
+				state = page_state::BEACH;
+			else if (index == 2)
+				state = page_state::CAMPING;
+			else if (index == 3)
+				state = page_state::START;
+			break; 
+		}
+		default:break;
+	}
+	printf("New url : %s\n", UrlSrc[index]);
+	long fileSize;
+	char *memBuffer, *headerBuffer;
+	memBuffer = headerBuffer = NULL;
+
+	memBuffer = readUrl2(UrlSrc[index], fileSize, &headerBuffer);
+	char* res = NULL;
+	res = pFunVec[state](memBuffer, fileSize);	//strip <tags> off
+	printf("data returned:\n%s", res);
+	printf("Enter a number[1 - 3] or q to quit :\n");
+
+	if (fileSize != 0)
+	{
+		delete(res);
+		delete(headerBuffer);
+	}
+}
 
 int main()
 {
-	const int bufLen = 1024;
-	char szUrlSrc[] = "http://csweb01.csueastbay.edu/~td4679/Pgm3/start";
-	char *szUrl = szUrlSrc;
 	long fileSize;
 	char *memBuffer, *headerBuffer;
 	FILE *fp;
-
+	
 	memBuffer = headerBuffer = NULL;
 
 	if (WSAStartup(0x101, &wsaData) != 0)
 		return -1;
 
-	memBuffer = readUrl2(szUrl, fileSize, &headerBuffer);
-	printf("returned from readUrl\n");
-	printf("data returned:\n%s", memBuffer);
+	memBuffer = readUrl2(UrlSrc[0], fileSize, &headerBuffer);
+	char* res = NULL;
+	res = formatHTML_start(memBuffer, fileSize);	//strip <tags> off
+	printf("data returned:\n%s", res);
+
 	if (fileSize != 0)
 	{
-		printf("Got some data\n");
-		fp = fopen("downloaded.file", "wb");
-		fwrite(memBuffer, 1, fileSize, fp);
-		fclose(fp);
-		delete(memBuffer);
+		//printf("Got some data, write into file\n");
+		//fp = fopen("downloaded.file", "wb");
+		//fwrite(res, 1, fileSize, fp);
+		//fclose(fp);
+		delete(res);
 		delete(headerBuffer);
 	}
+	
 
+	printf("Enter a number[1 - 3] or q to quit :\n");
+	char input;
+	while (scanf("%c", &input) && input != 'q')
+	{
+		if (input == '1')
+		{
+			SetState(1);
+		}
+		else if (input == '2')
+		{
+			SetState(2);
+		}
+		else if (input == '3')
+		{
+			SetState(3);
+		}
+	}
+	printf("Exit\n");
 	WSACleanup();
 	system("pause");
 	return 0;
@@ -127,6 +247,121 @@ int getHeaderLength(char *content)
 		}
 	}
 	return ofset;
+}
+
+char* formatHTML_start(char* str, long& len)
+{
+	string html(str);
+	delete(str);
+	std::regex tags("<p>");
+	std::string output1;
+	std::regex_replace(std::back_inserter(output1), html.begin(), html.end(), tags, "\n");
+	tags = ("<[^<]*>");
+	std::string output2;
+	std::regex_replace(std::back_inserter(output2), output1.begin(), output1.end(), tags, "");
+	tags = ("Camping");
+	output1.clear();
+	std::regex_replace(std::back_inserter(output1), output2.begin(), output2.end(), tags, "[1]. Camping");
+
+	tags = ("Beach");
+	output2.clear();
+	std::regex_replace(std::back_inserter(output2), output1.begin(), output1.end(), tags, "[2]. Beach");
+
+	tags = ("Barbeque");
+	output1.clear();
+	std::regex_replace(std::back_inserter(output1), output2.begin(), output2.end(), tags, "[3]. Barbeque");
+
+	len = output1.length();
+	char *cstr = new char[output1.length() + 1];
+	strcpy(cstr, output1.c_str());
+	return cstr;
+}
+
+
+char* formatHTML_camp(char* str, long& len)
+{
+	string html(str);
+	delete(str);
+	std::regex tags("<p>");
+	std::string output1;
+	std::regex_replace(std::back_inserter(output1), html.begin(), html.end(), tags, "\n");
+	tags = ("<[^<]*>");
+	std::string output2;
+	std::regex_replace(std::back_inserter(output2), output1.begin(), output1.end(), tags, "");
+	tags = ("BBQ");
+	output1.clear();
+	std::regex_replace(std::back_inserter(output1), output2.begin(), output2.end(), tags, "[1]. BBQ");
+
+	tags = ("Beach");
+	output2.clear();
+	std::regex_replace(std::back_inserter(output2), output1.begin(), output1.end(), tags, "[2]. Beach");
+
+	tags = ("Back to Start");
+	output1.clear();
+	std::regex_replace(std::back_inserter(output1), output2.begin(), output2.end(), tags, "[3]. Back to Start");
+
+	len = output1.length();
+	char *cstr = new char[output1.length() + 1];
+	strcpy(cstr, output1.c_str());
+	return cstr;
+}
+
+
+char* formatHTML_bbq(char* str, long& len)
+{
+	string html(str);
+	delete(str);
+	std::regex tags("<p>");
+	std::string output1;
+	std::regex_replace(std::back_inserter(output1), html.begin(), html.end(), tags, "\n");
+	tags = ("<[^<]*>");
+	std::string output2;
+	std::regex_replace(std::back_inserter(output2), output1.begin(), output1.end(), tags, "");
+	tags = ("Beach");
+	output1.clear();
+	std::regex_replace(std::back_inserter(output1), output2.begin(), output2.end(), tags, "\n[1]. Beach");
+
+	tags = ("Camping");
+	output2.clear();
+	std::regex_replace(std::back_inserter(output2), output1.begin(), output1.end(), tags, "[2]. Camping");
+
+	tags = ("Back to Start");
+	output1.clear();
+	std::regex_replace(std::back_inserter(output1), output2.begin(), output2.end(), tags, "[3]. Back to Start");
+
+	len = output1.length();
+	char *cstr = new char[output1.length() + 1];
+	strcpy(cstr, output1.c_str());
+	return cstr;
+}
+
+
+char* formatHTML_beach(char* str, long& len)
+{
+	string html(str);
+	delete(str);
+	std::regex tags("<p>");
+	std::string output1;
+	std::regex_replace(std::back_inserter(output1), html.begin(), html.end(), tags, "\n");
+	tags = ("<[^<]*>");
+	std::string output2;
+	std::regex_replace(std::back_inserter(output2), output1.begin(), output1.end(), tags, "");
+	tags = ("Have a BBQ");
+	output1.clear();
+	std::regex_replace(std::back_inserter(output1), output2.begin(), output2.end(), tags, "\n[1]. Have a BBQ");
+
+	tags = ("Go camping");
+	output2.clear();
+	std::regex_replace(std::back_inserter(output2), output1.begin(), output1.end(), tags, "[2]. Go camping");
+
+	tags = ("Back to Start");
+	output1.clear();
+	std::regex_replace(std::back_inserter(output1), output2.begin(), output2.end(), tags, "[3]. Back to Start");
+
+	len = output1.length();
+	char *cstr = new char[output1.length() + 1];
+	strcpy(cstr, output1.c_str());
+	return cstr;
 }
 
 char *readUrl2(char *szUrl, long &bytesReturnedOut, char **headerOut)
